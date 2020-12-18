@@ -155,6 +155,7 @@ void CurveDataSequencer::unsubscribe() {
     subscribedTopics_.clear();
     timeFields_.clear();
     timeValues_.clear();
+    base_receipt_time_ = nullptr;
     
     emit unsubscribed();
   }
@@ -176,7 +177,7 @@ void CurveDataSequencer::processMessage(const Message& message) {
     point.setX(variant.getNumericValue());
   }
   else
-    point.setX(message.getReceiptTime().toSec());
+    point.setX(getRelativeReceiptTime(message).toSec());
   
   if (yAxisConfig->getFieldType() == CurveAxisConfig::MessageData) {
     variant_topic_tools::BuiltinVariant variant = message.getVariant().
@@ -185,7 +186,7 @@ void CurveDataSequencer::processMessage(const Message& message) {
     point.setY(variant.getNumericValue());
   }
   else
-    point.setY(message.getReceiptTime().toSec());
+    point.setY(getRelativeReceiptTime(message).toSec());
   
   emit pointReceived(point);
 }
@@ -235,7 +236,7 @@ void CurveDataSequencer::processMessage(CurveConfig::Axis axis, const
       timeValue.time_ = variant.getValue<ros::Time>();
     }
     else
-      timeValue.time_ = message.getReceiptTime();
+      timeValue.time_ = getRelativeReceiptTime(message);
     
     if (axisConfig->getFieldType() == CurveAxisConfig::MessageData) {
       variant_topic_tools::BuiltinVariant variant = message.getVariant().
@@ -244,7 +245,7 @@ void CurveDataSequencer::processMessage(CurveConfig::Axis axis, const
       timeValue.value_ = variant.getNumericValue();
     }
     else
-      timeValue.value_ = message.getReceiptTime().toSec();
+      timeValue.value_ = getRelativeReceiptTime(message).toSec();
       
     if (timeValues_[axis].isEmpty() ||
         (timeValue.time_ > timeValues_[axis].last().time_))
@@ -300,6 +301,19 @@ void CurveDataSequencer::interpolate() {
       emit pointReceived(point); 
     }
   }
+}
+
+ros::Time CurveDataSequencer::getRelativeReceiptTime(const Message& message) {
+  const auto receipt_time = message.getReceiptTime();
+
+  if (!base_receipt_time_) {
+    base_receipt_time_ = std::make_shared<ros::Time>(receipt_time);
+  }
+  else if (receipt_time < *base_receipt_time_) {
+    *base_receipt_time_ = receipt_time;
+  }
+
+  return ros::Time((receipt_time - *base_receipt_time_).toSec());
 }
 
 /*****************************************************************************/

@@ -95,6 +95,9 @@ namespace rqt_multiplot {
     void processMessage(const Message& message);
     void processMessage(CurveConfig::Axis axis, const Message& message);
     void interpolate();
+
+    std::shared_ptr<ros::Time> base_receipt_time_;
+    ros::Time getRelativeReceiptTime(const Message& message);
     
   private slots:
     void configAxisConfigChanged();
